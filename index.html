@@ -7,7 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
     <style>
         body { margin: 0; overflow: hidden; background: #000; }
-        canvas { display: block; }
+        canvas { display: block; width: 100vw; height: 100vh; }
     </style>
 </head>
 <body>
@@ -15,10 +15,25 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = 800;
-        canvas.height = 400;
 
-        // Constants
+        // Base resolution for scaling
+        const BASE_WIDTH = 800;
+        const BASE_HEIGHT = 400;
+        let scaleX = 1;
+        let scaleY = 1;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            scaleX = canvas.width / BASE_WIDTH;
+            scaleY = canvas.height / BASE_HEIGHT;
+        }
+
+        // Initial resize and handle window resize
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Constants (in base resolution units)
         const PLAYER_SIZE = 25;
         const OBSTACLE_SIZE = 15;
         const INITIAL_SPEED = 2.5;
@@ -31,8 +46,8 @@
         const NEON_RED = '#FF3333';
         const DARK_BG = '#0F0F1A';
 
-        // Game state
-        let player = { x: canvas.width / 4, y: canvas.height / 2 };
+        // Game state (in base resolution units)
+        let player = { x: BASE_WIDTH / 4, y: BASE_HEIGHT / 2 };
         let obstacles = [];
         let particles = [];
         let score = 0;
@@ -41,14 +56,14 @@
         let lastSpawnTime = performance.now();
         let gameOver = false;
 
-        // Mouse input
+        // Mouse input (convert to base resolution)
         canvas.addEventListener('mousemove', (e) => {
             if (!gameOver) {
                 const rect = canvas.getBoundingClientRect();
-                player.x = e.clientX - rect.left;
-                player.y = e.clientY - rect.top;
-                player.x = Math.max(PLAYER_SIZE / 2, Math.min(canvas.width - PLAYER_SIZE / 2, player.x));
-                player.y = Math.max(PLAYER_SIZE / 2, Math.min(canvas.height - PLAYER_SIZE / 2, player.y));
+                player.x = (e.clientX - rect.left) / scaleX;
+                player.y = (e.clientY - rect.top) / scaleY;
+                player.x = Math.max(PLAYER_SIZE / 2, Math.min(BASE_WIDTH - PLAYER_SIZE / 2, player.x));
+                player.y = Math.max(PLAYER_SIZE / 2, Math.min(BASE_HEIGHT - PLAYER_SIZE / 2, player.y));
             }
         });
 
@@ -61,7 +76,7 @@
         });
 
         function restartGame() {
-            player = { x: canvas.width / 4, y: canvas.height / 2 };
+            player = { x: BASE_WIDTH / 4, y: BASE_HEIGHT / 2 };
             obstacles = [];
             particles = [];
             score = 0;
@@ -74,8 +89,8 @@
 
         function spawnObstacle() {
             if (obstacles.length < MAX_OBSTACLES) {
-                const y = Math.random() * (canvas.height - OBSTACLE_SIZE) + OBSTACLE_SIZE / 2;
-                obstacles.push({ x: canvas.width, y, speed: speed + Math.random() * 0.5 });
+                const y = Math.random() * (BASE_HEIGHT - OBSTACLE_SIZE) + OBSTACLE_SIZE / 2;
+                obstacles.push({ x: BASE_WIDTH, y, speed: speed + Math.random() * 0.5 });
                 speed += 0.1;
             }
         }
@@ -142,23 +157,34 @@
 
             // Animated grid
             ctx.strokeStyle = 'rgba(57, 255, 20, 0.2)';
-            ctx.lineWidth = 1;
-            for (let y = 0; y < canvas.height; y += 20) {
+            ctx.lineWidth = 1 * scaleY;
+            for (let y = 0; y < BASE_HEIGHT; y += 20) {
                 ctx.beginPath();
-                ctx.moveTo(0, y + (frameCount % 20));
-                ctx.lineTo(canvas.width, y + (frameCount % 20));
+                ctx.moveTo(0, (y + (frameCount % 20)) * scaleY);
+                ctx.lineTo(canvas.width, (y + (frameCount % 20)) * scaleY);
                 ctx.stroke();
             }
 
             // Player
             ctx.fillStyle = NEON_GREEN;
-            ctx.fillRect(player.x - PLAYER_SIZE / 2, player.y - PLAYER_SIZE / 2, PLAYER_SIZE, PLAYER_SIZE);
+            ctx.fillRect(
+                (player.x - PLAYER_SIZE / 2) * scaleX,
+                (player.y - PLAYER_SIZE / 2) * scaleY,
+                PLAYER_SIZE * scaleX,
+                PLAYER_SIZE * scaleY
+            );
 
             // Obstacles
             obstacles.forEach(obs => {
                 ctx.fillStyle = NEON_RED;
                 ctx.beginPath();
-                ctx.arc(obs.x, obs.y, OBSTACLE_SIZE / 2, 0, Math.PI * 2);
+                ctx.arc(
+                    obs.x * scaleX,
+                    obs.y * scaleY,
+                    (OBSTACLE_SIZE / 2) * scaleX,
+                    0,
+                    Math.PI * 2
+                );
                 ctx.fill();
             });
 
@@ -166,26 +192,32 @@
             particles.forEach(p => {
                 ctx.fillStyle = `rgba(57, 255, 20, ${p.life / 20})`;
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+                ctx.arc(
+                    p.x * scaleX,
+                    p.y * scaleY,
+                    2 * scaleX,
+                    0,
+                    Math.PI * 2
+                );
                 ctx.fill();
             });
 
             // UI with glow
-            ctx.font = '24px Orbitron';
+            ctx.font = `${24 * scaleY}px Orbitron`;
             ctx.fillStyle = '#FFF';
             ctx.shadowColor = NEON_GREEN;
-            ctx.shadowBlur = 10;
-            ctx.fillText(`Score: ${score}`, 10, 30);
+            ctx.shadowBlur = 10 * scaleY;
+            ctx.fillText(`Score: ${score}`, 10 * scaleX, 30 * scaleY);
             ctx.shadowBlur = 0;
 
             if (gameOver) {
                 ctx.fillStyle = NEON_RED;
-                ctx.font = '40px Orbitron';
+                ctx.font = `${40 * scaleY}px Orbitron`;
                 ctx.shadowColor = NEON_RED;
-                ctx.shadowBlur = 15;
-                ctx.fillText('Game Over', canvas.width / 2 - 100, canvas.height / 2);
-                ctx.font = '20px Orbitron';
-                ctx.fillText('Reload page to restart', canvas.width / 2 - 80, canvas.height / 2 + 40);
+                ctx.shadowBlur = 15 * scaleY;
+                ctx.fillText('Game Over', (BASE_WIDTH / 2 - 100) * scaleX, (BASE_HEIGHT / 2) * scaleY);
+                ctx.font = `${20 * scaleY}px Orbitron`;
+                ctx.fillText('Press F5 to Restart', (BASE_WIDTH / 2 - 80) * scaleX, (BASE_HEIGHT / 2 + 40) * scaleY);
                 ctx.shadowBlur = 0;
             }
         }
